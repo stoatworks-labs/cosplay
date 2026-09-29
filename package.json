@@ -1,0 +1,30 @@
+{
+  "name": "cosplay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Compute Optimal Splay — splay-angle optimiser for d&b ArrayCalc projects — flattens the direct-sound-vs-distance traces and pulls the frequency bands together.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "sql.js": "^1.14.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/sql.js": "^1.4.11",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
+}
