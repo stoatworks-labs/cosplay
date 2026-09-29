@@ -1,5 +1,10 @@
 # Cosplay — Compute Optimal Splay
 
+> **AI-assisted project.** This codebase was created with [Claude](https://claude.com/claude-code)
+> (Anthropic), directed and reviewed by a human author.
+> Its splay results have been checked against ArrayCalc itself; check them there before
+> rigging from them.
+
 A sidecar for d&b ArrayCalc. Open an ArrayCalc project (`.dbpr`), pick a flown line
 array, and Cosplay searches the splay angles and the frame angle for the most even
 direct sound level along the array's main axis — the "Direct sound level vs. distance"
