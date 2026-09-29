@@ -13,7 +13,7 @@ window.STOATWORKS_ABOUT = Object.assign({
   "name": "Cosplay",
   "slug": "cosplay",
   "version": "v0.1.0",
-  "hook": "Compute Optimal Splay: splay angles for an even direct level, from an ArrayCalc project",
+  "hook": "Splay angles for an even level, from an ArrayCalc project",
   "licence": "MIT",
   "guide": "",
   "page": "https://stoatworks-labs.com/software/cosplay/",
