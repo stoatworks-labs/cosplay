@@ -1,5 +1,6 @@
-import { fromSection, poses, rot, type ArrayModel } from './geometry.ts'
-import type { SqlDb } from './dbpr.ts'
+import { fromSection, poses, rot, unsupportedReason, type ArrayModel } from './geometry.ts'
+import { linkedChain, type SqlDb } from './dbpr.ts'
+import type { SourceGroup } from './types.ts'
 import type { Candidate } from './optimise.ts'
 
 /**
@@ -43,8 +44,30 @@ export function writeCandidate(db: SqlDb, target: ArrayModel, c: Candidate): voi
   }
 }
 
-/** Other groups this result can be copied to: same boxes in the same order (a mirrored L/R hang). */
-export function twins(models: ArrayModel[], m: ArrayModel): ArrayModel[] {
+/**
+ * The groups ArrayCalc links to m's group. They always take m's angles — in ArrayCalc they
+ * are one source-list entry with one set of angles — so a write to m writes them too.
+ * A linked group that cannot take the angles (different boxes, not a flown array) is reported
+ * rather than silently skipped or half-written.
+ */
+export function linkedTargets(all: ArrayModel[], groups: SourceGroup[], m: ArrayModel): { targets: ArrayModel[]; problems: string[] } {
+  const targets: ArrayModel[] = []
+  const problems: string[] = []
+  for (const g of linkedChain(groups, m.group)) {
+    const t = all.find((x) => x.group.sourceGroupId === g.sourceGroupId)
+    if (!t) problems.push(`${g.name} (#${g.sourceGroupId}): ${unsupportedReason(g) ?? 'not readable'}`)
+    else if (t.names.join('|') !== m.names.join('|')) problems.push(`${g.name} (#${g.sourceGroupId}): different boxes`)
+    else targets.push(t)
+  }
+  return { targets, problems }
+}
+
+/**
+ * Unlinked groups this result could ALSO be copied to, by choice: the same boxes in the same
+ * order (a separately built L/R pair). Groups linked to m, or to anything, are left out —
+ * links are handled by linkedTargets and followers never stand alone.
+ */
+export function twins(models: ArrayModel[], m: ArrayModel, exclude: Set<number> = new Set()): ArrayModel[] {
   const sig = m.names.join('|')
-  return models.filter((o) => o !== m && o.names.join('|') === sig)
+  return models.filter((o) => o !== m && !exclude.has(o.group.sourceGroupId) && o.names.join('|') === sig)
 }

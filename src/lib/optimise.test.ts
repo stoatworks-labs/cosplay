@@ -33,3 +33,25 @@ describe.runIf(haveExamples)('optimiser on a d&b example', () => {
     expect(after.score.total).toBeLessThanOrEqual(before.score.total)
   })
 })
+
+describe.runIf(haveExamples)('short arrays', () => {
+  it('finishes when the search space is smaller than the evaluation budget', async () => {
+    const db = await openDb(`${EXAMPLES}/V-Series/V-Series setup example 3.dbpr`)
+    const proj = readProject(db)
+    const full = buildModel(proj.groups.find((g) => g.name === 'Main')!)
+    // Three boxes, a 2° frame window: a few hundred layouts in all, far under the budget.
+    const model = { ...full, heights: full.heights.slice(0, 3), links: full.links.slice(0, 2), lateral: full.lateral.slice(0, 3),
+      names: full.names.slice(0, 3), levels: full.levels.slice(0, 3), mutes: full.mutes.slice(0, 3), splays: full.splays.slice(0, 3) }
+    const points = sectionSegments(model, proj.planes, 1).flatMap((s) => s.points)
+    const p: Problem = {
+      model, points, atmosphere: proj,
+      goal: { flatBands: [4000], trackBands: [], slopePerDoubling: 0, coherenceWeight: 0, worstWeight: 0 },
+      limits: { splayMin: 0, splayMax: 3, splayStep: 1, frameMin: model.frameAngle - 1, frameMax: model.frameAngle + 1, frameStep: 0.1, monotonic: true },
+    }
+    const gen = optimise(p, { maxEvaluations: 1_000_000 })
+    let r = gen.next(), steps = 0
+    while (!r.done && steps++ < 100_000) r = gen.next()
+    expect(r.done).toBe(true)
+    expect(r.value.evaluations).toBeLessThan(1000)
+  })
+})

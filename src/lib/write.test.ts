@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { readProject } from './dbpr.ts'
+import { linkedFollowers, readProject } from './dbpr.ts'
 import { buildModel, unsupportedReason } from './geometry.ts'
-import { writeCandidate } from './write.ts'
+import { linkedTargets, writeCandidate } from './write.ts'
 import { EXAMPLES, exampleFiles, haveExamples, openDb } from './testing.ts'
 
 describe.runIf(haveExamples)('write-back', () => {
@@ -41,5 +41,39 @@ describe.runIf(haveExamples)('write-back', () => {
       // Rigging measured back from the rewritten file is the rigging we laid it out with.
       m2.links.forEach((l, i) => expect(Math.hypot(l.u - a.links[i].u, l.z - a.links[i].z)).toBeLessThan(1e-6))
     }
+  })
+})
+
+describe.runIf(haveExamples)('linked arrays', () => {
+  it('lists each linked chain once and writes the leader’s angles to every member, mirrored', async () => {
+    let pairs = 0
+    for (const f of exampleFiles()) {
+      const db = await openDb(f)
+      const p = readProject(db)
+      const all = p.groups.filter((g) => !unsupportedReason(g)).map(buildModel)
+      const followers = linkedFollowers(p.groups)
+      for (const m of all.filter((m) => !followers.has(m.group.sourceGroupId))) {
+        const { targets } = linkedTargets(all, p.groups, m)
+        if (!targets.length) continue
+        // A leader is never itself a follower, and every follower is hidden in ArrayCalc's list.
+        targets.forEach((t) => expect(t.group.hasPrevious, `${f} ${t.group.name}`).toBe(true))
+        const cand = { frameAngle: m.frameAngle + 1, splays: m.splays.map((s, i) => (i ? Math.min(s + 1, 7) : 0)) }
+        writeCandidate(db, m, cand)
+        for (const t of targets) writeCandidate(db, t, cand)
+        const again = readProject(db)
+        const lead = buildModel(again.groups.find((g) => g.sourceGroupId === m.group.sourceGroupId)!)
+        for (const t of targets) {
+          const tm = buildModel(again.groups.find((g) => g.sourceGroupId === t.group.sourceGroupId)!)
+          expect(tm.splays).toEqual(lead.splays)
+          expect(tm.frameAngle).toBeCloseTo(lead.frameAngle, 9)
+          // Mirrored across the room's centre line: same height, same distance forward.
+          const a = lead.group.cabinets.at(-1)!, b = tm.group.cabinets.at(-1)!
+          expect(Math.abs(a.origin.z - b.origin.z)).toBeLessThan(1e-3)
+        }
+        pairs++
+      }
+      db.close()
+    }
+    expect(pairs).toBeGreaterThan(50)
   })
 })

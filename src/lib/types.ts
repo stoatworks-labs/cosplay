@@ -55,6 +55,15 @@ export interface SourceGroup {
   system: string
   origin: Vec3
   arrayProcessing: boolean
+  /**
+   * ArrayCalc's link: the group this one drives (SourceGroups.NextSourceGroupId), 0 for none.
+   * The driven group is the mirrored copy ArrayCalc hides under the same source-list entry;
+   * it carries HasPrevious = 1 and OrderIndex = −1 (all 135 linked pairs in the example
+   * projects and the user's files).
+   */
+  next: number
+  /** SourceGroupsAdditionalData.HasPrevious: another group drives this one. */
+  hasPrevious: boolean
   cabinets: Cabinet[]
   frame: FlyingFrame | null
 }

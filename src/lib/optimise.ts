@@ -248,7 +248,12 @@ export function* optimise(p: Problem, opts: { maxEvaluations?: number; seed?: nu
 
   yield* descend(best, bestCost, 'descent')
 
-  while (evals < maxEval) {
+  // A short array has a small search space: every kick can land on layouts already scored,
+  // `evals` stops rising and `evals < maxEval` would never end the loop. Stop once a run of
+  // kicks in a row has scored nothing new — the reachable space is exhausted.
+  let stale = 0
+  while (evals < maxEval && stale < 200) {
+    const before = evals
     // Kick: a few random single-hinge moves plus a frame nudge, then descend again.
     let c: Candidate = { frameAngle: best.frameAngle, splays: best.splays.slice() }
     const kicks = 2 + Math.floor(rand() * 3)
@@ -259,6 +264,7 @@ export function* optimise(p: Problem, opts: { maxEvaluations?: number; seed?: nu
     c.frameAngle += (rand() - 0.5) * 20 * l.frameStep
     c = repair(l, c)
     yield* descend(c, cost(c), 'search')
+    stale = evals === before ? stale + 1 : 0
   }
   return report('done')
 }

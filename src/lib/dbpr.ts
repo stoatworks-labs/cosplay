@@ -76,7 +76,8 @@ export function readProject(db: SqlDb, fileName = 'project.dbpr'): Project {
 
   const groups: SourceGroup[] = rows(
     db,
-    `SELECT s.SourceGroupId, s.Name, s.Type, s.Mounting, s.ArrayProcessingEnable, a.System, a.OriginX, a.OriginY, a.OriginZ
+    `SELECT s.SourceGroupId, s.Name, s.Type, s.Mounting, s.ArrayProcessingEnable, s.NextSourceGroupId, a.HasPrevious,
+            a.System, a.OriginX, a.OriginY, a.OriginZ
        FROM SourceGroups s LEFT JOIN SourceGroupsAdditionalData a USING (SourceGroupId)
       ORDER BY s.OrderIndex, s.SourceGroupId`,
   ).map((r) => {
@@ -89,6 +90,8 @@ export function readProject(db: SqlDb, fileName = 'project.dbpr'): Project {
       system: str(r.System),
       origin: { x: num(r.OriginX), y: num(r.OriginY), z: num(r.OriginZ) },
       arrayProcessing: Boolean(num(r.ArrayProcessingEnable)),
+      next: num(r.NextSourceGroupId),
+      hasPrevious: Boolean(num(r.HasPrevious)),
       cabinets: cabinetsByGroup.get(id) ?? [],
       frame: frames.get(id) ?? null,
     }
@@ -241,4 +244,26 @@ function tessellateArc(r: Row): [Vec3, Vec3, Vec3][] {
     }
   }
   return tris
+}
+
+/**
+ * The groups ArrayCalc links to `g` and keeps at its angles: follow NextSourceGroupId from g.
+ * Guarded against a cycle; a missing target just ends the chain.
+ */
+export function linkedChain(groups: SourceGroup[], g: SourceGroup): SourceGroup[] {
+  const byId = new Map(groups.map((x) => [x.sourceGroupId, x]))
+  const out: SourceGroup[] = []
+  const seen = new Set([g.sourceGroupId])
+  for (let cur = byId.get(g.next); cur && !seen.has(cur.sourceGroupId); cur = byId.get(cur.next)) {
+    seen.add(cur.sourceGroupId)
+    out.push(cur)
+  }
+  return out
+}
+
+/** Groups driven by another through a link: ArrayCalc shows them only under their leader. */
+export function linkedFollowers(groups: SourceGroup[]): Set<number> {
+  const ids = new Set<number>()
+  for (const g of groups) for (const f of linkedChain(groups, g)) ids.add(f.sourceGroupId)
+  return ids
 }

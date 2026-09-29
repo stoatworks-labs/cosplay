@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js'
 import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url'
-import { readProject } from './lib/dbpr.ts'
+import { linkedFollowers, readProject } from './lib/dbpr.ts'
 import { buildModel, unsupportedReason, type ArrayModel } from './lib/geometry.ts'
 import { evaluate, feasible, repair, type Candidate, type Evaluation, type Goal, type Limits, type Problem, type Progress } from './lib/optimise.ts'
 import { sectionSegments } from './lib/section.ts'
 import { splayRange } from './lib/systems.ts'
 import type { Project } from './lib/types.ts'
-import { twins, writeCandidate } from './lib/write.ts'
+import { linkedTargets, twins, writeCandidate } from './lib/write.ts'
 import { LevelChart } from './components/LevelChart.tsx'
 import { SectionView } from './components/SectionView.tsx'
 import type { Reply, Request } from './worker.ts'
@@ -20,7 +20,11 @@ interface Loaded {
   fileName: string
   bytes: Uint8Array
   project: Project
+  /** Every group that can be laid out, linked followers included (they are written, never listed). */
+  all: ArrayModel[]
+  /** What the array picker offers: ArrayCalc's source-list entries, so a linked L/R pair is one. */
   models: ArrayModel[]
+  followers: Set<number>
   skipped: { name: string; why: string }[]
 }
 
@@ -62,23 +66,25 @@ export function App() {
       const db = new SQL.Database(bytes)
       const project = readProject(db, file.name)
       db.close()
-      const models: ArrayModel[] = []
+      const followers = linkedFollowers(project.groups)
+      const all: ArrayModel[] = []
       const skipped: Loaded['skipped'] = []
       for (const g of project.groups) {
         if (g.type === 5) continue
         const why = unsupportedReason(g)
-        if (why) skipped.push({ name: g.name, why })
-        else models.push(buildModel(g))
+        if (!why) all.push(buildModel(g))
+        else if (!followers.has(g.sourceGroupId)) skipped.push({ name: g.name, why })
       }
+      const models = all.filter((m) => !followers.has(m.group.sourceGroupId))
       if (!models.length) throw new Error('This project has no vertically flown line array Cosplay can work on.')
-      setLoaded({ fileName: file.name, bytes, project, models, skipped })
-      selectGroup(models[0], models)
+      setLoaded({ fileName: file.name, bytes, project, all, models, followers, skipped })
+      selectGroup(models[0])
     } catch (e) {
       setError(String((e as Error).message ?? e))
     }
   }, [])
 
-  const selectGroup = (m: ArrayModel, models: ArrayModel[]) => {
+  const selectGroup = (m: ArrayModel) => {
     worker.current?.terminate()
     worker.current = null
     setRunning(null)
@@ -99,7 +105,7 @@ export function App() {
       excludedPlanes: [],
     })
     setProposal(null)
-    setCopyTo(twins(models, m).map((t) => t.group.sourceGroupId))
+    setCopyTo([])
   }
 
   const model = loaded?.models.find((m) => m.group.sourceGroupId === groupId) ?? null
@@ -186,6 +192,7 @@ export function App() {
     const db: Database = new SQL.Database(loaded.bytes)
     try {
       writeCandidate(db, model, proposal)
+      for (const t of linked.targets) writeCandidate(db, t, proposal)
       for (const t of loaded.models) if (copyTo.includes(t.group.sourceGroupId)) writeCandidate(db, t, proposal)
       const out = db.export()
       const blob = new Blob([out.slice().buffer], { type: 'application/octet-stream' })
@@ -214,7 +221,12 @@ export function App() {
     if (f) open(f)
   }
 
-  const twinsOf = model && loaded ? twins(loaded.models, model) : []
+  const linked = model && loaded ? linkedTargets(loaded.all, loaded.project.groups, model) : { targets: [], problems: [] }
+  const twinsOf = model && loaded ? twins(loaded.models, model, loaded.followers) : []
+  const linkLabel = (m: ArrayModel) => {
+    const n = loaded ? linkedTargets(loaded.all, loaded.project.groups, m).targets.length : 0
+    return n === 0 ? '' : n === 1 ? ' · linked L/R' : ` · ${n + 1} linked`
+  }
   const range = model ? splayRange(model.names) : null
   const feasibleNow = proposal && problem ? feasible(problem.limits, proposal) : true
 
@@ -269,10 +281,10 @@ export function App() {
             </div>
             <label className="field">
               <span className="label">Array</span>
-              <select value={groupId ?? ''} onChange={(e) => selectGroup(loaded.models.find((m) => m.group.sourceGroupId === +e.target.value)!, loaded.models)}>
+              <select value={groupId ?? ''} onChange={(e) => selectGroup(loaded.models.find((m) => m.group.sourceGroupId === +e.target.value)!)}>
                 {loaded.models.map((m) => (
                   <option key={m.group.sourceGroupId} value={m.group.sourceGroupId}>
-                    {m.group.name} — {m.names.length}× {[...new Set(m.names)].join('/')} (#{m.group.sourceGroupId})
+                    {m.group.name} — {m.names.length}× {[...new Set(m.names)].join('/')}{linkLabel(m)} (#{m.group.sourceGroupId})
                   </option>
                 ))}
               </select>
@@ -441,6 +453,16 @@ export function App() {
             </div>
 
             <div className="card export">
+              {linked.targets.length > 0 && (
+                <p className="small">
+                  Linked in ArrayCalc: the same angles are written to {linked.targets.map((t) => `${t.group.name} (#${t.group.sourceGroupId})`).join(', ')}.
+                </p>
+              )}
+              {linked.problems.length > 0 && (
+                <div className="banner warn small">
+                  Linked in ArrayCalc but not written, so ArrayCalc may disagree with this file: {linked.problems.join('; ')}.
+                </div>
+              )}
               {twinsOf.length > 0 && (
                 <div className="field">
                   <span className="label">Also apply to</span>
@@ -451,7 +473,7 @@ export function App() {
                         checked={copyTo.includes(t.group.sourceGroupId)}
                         onChange={(e) => setCopyTo((c) => (e.target.checked ? [...c, t.group.sourceGroupId] : c.filter((x) => x !== t.group.sourceGroupId)))}
                       />
-                      {t.group.name} (#{t.group.sourceGroupId}, same {t.names.length} boxes)
+                      {t.group.name} (#{t.group.sourceGroupId}, same {t.names.length} boxes, not linked in ArrayCalc)
                     </label>
                   ))}
                 </div>
