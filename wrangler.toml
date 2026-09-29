@@ -1,0 +1,22 @@
+# Cloudflare deployment for Cosplay: a static-assets-only Worker serving dist/.
+#
+# Deployed by .github/workflows/deploy.yml on every push to main. Manual fallback:
+#
+#   npm run build && cf-run npx wrangler deploy
+#
+# A ROUTE, not a custom domain. stoatworks-labs.com is at Cloudflare's limit of 100
+# Workers custom domains per zone (error 100122), so `custom_domain = true` would
+# upload a Worker that nothing serves. A route has no such limit but needs a proxied
+# DNS record to exist first, which wrangler does not create: `cosplay` is an AAAA 100::
+# record, proxied, made through the API on 2026-09-29. Delete that record and this
+# page goes dark with a green deploy.
+
+name = "cosplay"
+compatibility_date = "2026-09-29"
+
+[assets]
+directory = "./dist"
+
+[[routes]]
+pattern = "cosplay.stoatworks-labs.com/*"
+zone_name = "stoatworks-labs.com"

@@ -22,6 +22,7 @@
   --series-3: #1baf7a;
   --series-4: #eda100;
   --series-5: #e87ba4;
+  --sw-support-accent: var(--accent);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
@@ -90,6 +91,9 @@ h3 { font-size: 13px; margin: 18px 0 8px; text-transform: uppercase; letter-spac
 .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
 .brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .tag { color: var(--muted); font-size: 13px; }
+.preview { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--accent); color: var(--accent); }
+.top-actions { display: flex; gap: 8px; align-items: center; }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--text-2); }
 .foot { padding: 16px 20px; margin-top: auto; }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-weight: 500; cursor: pointer; }

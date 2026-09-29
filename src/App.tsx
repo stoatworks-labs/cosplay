@@ -232,11 +232,17 @@ export function App() {
         <div className="brand">
           <h1>Cosplay</h1>
           <span className="tag">Compute Optimal Splay · for d&amp;b ArrayCalc projects</span>
+          <span className="preview">preview</span>
         </div>
+        <div className="top-actions">
+        <button type="button" className="btn ghost" data-stoatworks-about>
+          About
+        </button>
         <label className="btn">
           {loaded ? 'Open another .dbpr' : 'Open .dbpr'}
           <input type="file" accept=".dbpr" hidden onChange={(e) => e.target.files?.[0] && open(e.target.files[0])} />
         </label>
+        </div>
       </header>
 
       {error && <div className="banner error">{error}</div>}
