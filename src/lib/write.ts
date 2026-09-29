@@ -71,3 +71,62 @@ export function twins(models: ArrayModel[], m: ArrayModel, exclude: Set<number> 
   const sig = m.names.join('|')
   return models.filter((o) => o !== m && !exclude.has(o.group.sourceGroupId) && o.names.join('|') === sig)
 }
+
+export interface PlannedArray {
+  model: ArrayModel
+  candidate: Candidate
+  /** Unlinked look-alikes the user also chose to give these angles. */
+  copyTo: ArrayModel[]
+}
+
+export interface Write {
+  target: ArrayModel
+  candidate: Candidate
+  /** Whose angles these are, for the summary. */
+  from: ArrayModel
+  why: 'own' | 'linked' | 'copy'
+}
+
+/**
+ * Everything one download writes, for any number of arrays optimised in one session.
+ * Each array's own angles go to it and to every group ArrayCalc links to it. An opt-in copy
+ * to a look-alike never overrides that look-alike's own result, or another array's linked
+ * mirror, and the same look-alike can only be copied to once — a clash is reported, not
+ * resolved silently.
+ */
+export function planWrites(all: ArrayModel[], groups: SourceGroup[], planned: PlannedArray[]): { writes: Write[]; problems: string[] } {
+  const writes: Write[] = []
+  const problems: string[] = []
+  const owner = new Map<number, Write>()
+  for (const p of planned) {
+    const { targets, problems: lp } = linkedTargets(all, groups, p.model)
+    problems.push(...lp)
+    for (const [t, why] of [[p.model, 'own'], ...targets.map((t) => [t, 'linked'])] as [ArrayModel, Write['why']][]) {
+      const w: Write = { target: t, candidate: p.candidate, from: p.model, why }
+      owner.set(t.group.sourceGroupId, w)
+      writes.push(w)
+    }
+  }
+  for (const p of planned) {
+    for (const t of p.copyTo) {
+      const id = t.group.sourceGroupId
+      const prior = owner.get(id)
+      if (prior) {
+        problems.push(
+          prior.why === 'copy'
+            ? `${t.group.name} (#${id}) was ticked as a copy of both ${prior.from.group.name} and ${p.model.group.name}; kept ${prior.from.group.name}'s angles`
+            : `${t.group.name} (#${id}) has its own angles, so the copy from ${p.model.group.name} was not written`,
+        )
+        continue
+      }
+      if (t.names.join('|') !== p.model.names.join('|')) {
+        problems.push(`${t.group.name} (#${id}): different boxes from ${p.model.group.name}, not copied`)
+        continue
+      }
+      const w: Write = { target: t, candidate: p.candidate, from: p.model, why: 'copy' }
+      owner.set(id, w)
+      writes.push(w)
+    }
+  }
+  return { writes, problems }
+}

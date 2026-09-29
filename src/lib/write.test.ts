@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { linkedFollowers, readProject } from './dbpr.ts'
 import { buildModel, unsupportedReason } from './geometry.ts'
-import { linkedTargets, writeCandidate } from './write.ts'
+import { linkedTargets, planWrites, writeCandidate } from './write.ts'
 import { EXAMPLES, exampleFiles, haveExamples, openDb } from './testing.ts'
 
 describe.runIf(haveExamples)('write-back', () => {
@@ -75,5 +75,57 @@ describe.runIf(haveExamples)('linked arrays', () => {
       db.close()
     }
     expect(pairs).toBeGreaterThan(50)
+  })
+})
+
+describe.runIf(haveExamples)('several arrays in one download', () => {
+  const V3 = `${EXAMPLES}/V-Series/V-Series setup example 3.dbpr`
+  const load = async (unlinkMains = false) => {
+    const db = await openDb(V3)
+    // Unlinked, the two Main hangs are a separately built L/R pair: look-alikes, not a link.
+    if (unlinkMains) db.run('UPDATE SourceGroups SET NextSourceGroupId = 0 WHERE SourceGroupId = 1')
+    const p = readProject(db)
+    const all = p.groups.filter((g) => !unsupportedReason(g)).map(buildModel)
+    const byId = (id: number) => all.find((m) => m.group.sourceGroupId === id)!
+    return { db, p, all, byId }
+  }
+
+  it('writes every planned array and each one’s linked mirror, and nothing else', async () => {
+    const { db, p, all, byId } = await load()
+    const main = { frameAngle: 4, splays: [0, 1, 2, 3, 4, 6, 9, 12] }
+    const out = { frameAngle: 6, splays: [0, 2, 4, 6, 8, 10] }
+    const { writes, problems } = planWrites(all, p.groups, [
+      { model: byId(1), candidate: main, copyTo: [] },
+      { model: byId(4), candidate: out, copyTo: [] },
+    ])
+    expect(problems).toEqual([])
+    expect(writes.map((w) => [w.target.group.sourceGroupId, w.why]).sort()).toEqual([[1, 'own'], [2, 'linked'], [4, 'own'], [5, 'linked']])
+    for (const w of writes) writeCandidate(db, w.target, w.candidate)
+    const again = readProject(db)
+    const m = (id: number) => buildModel(again.groups.find((g) => g.sourceGroupId === id)!)
+    for (const id of [1, 2]) expect(m(id).splays).toEqual(main.splays)
+    for (const id of [4, 5]) expect(m(id).splays).toEqual(out.splays)
+    // Untouched groups are exactly as loaded.
+    const cabs = (pr: typeof p, id: number) => pr.groups.find((g) => g.sourceGroupId === id)!.cabinets
+    expect(cabs(again, 6)).toEqual(cabs(p, 6))
+  })
+
+  it('never lets a copy overwrite a look-alike’s own proposal', async () => {
+    const { p, all, byId } = await load(true)
+    const a = { frameAngle: 3, splays: [0, 1, 1, 2, 3, 5, 8, 12] }
+    const b = { frameAngle: 5, splays: [0, 2, 2, 3, 4, 6, 9, 14] }
+    const { writes, problems } = planWrites(all, p.groups, [
+      { model: byId(1), candidate: a, copyTo: [byId(2)] },
+      { model: byId(2), candidate: b, copyTo: [] },
+    ])
+    expect(writes.filter((w) => w.target.group.sourceGroupId === 2)).toEqual([expect.objectContaining({ why: 'own', candidate: b })])
+    expect(problems.join()).toMatch(/has its own angles/)
+  })
+
+  it('copies to an unlinked look-alike when asked', async () => {
+    const { p, all, byId } = await load(true)
+    const a = { frameAngle: 3, splays: [0, 1, 1, 2, 3, 5, 8, 12] }
+    const { writes } = planWrites(all, p.groups, [{ model: byId(1), candidate: a, copyTo: [byId(2)] }])
+    expect(writes.map((w) => [w.target.group.sourceGroupId, w.why])).toEqual([[1, 'own'], [2, 'copy']])
   })
 })

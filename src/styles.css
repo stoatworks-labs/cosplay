@@ -175,3 +175,11 @@ table.splays { width: 100%; border-collapse: collapse; font-variant-numeric: tab
   .scores { grid-template-columns: minmax(0, 1fr); }
   .tag { display: none; }
 }
+
+.saving { width: 100%; gap: 6px; }
+.saved-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; }
+.saved-row.current { border-color: var(--accent); }
+.saved-row .small { flex: 1; min-width: 12ch; font-variant-numeric: tabular-nums; }
+.linkish { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--text); cursor: pointer; text-align: left; }
+.linkish:hover { color: var(--accent); }
+.small-btn { padding: 2px 8px; font-size: 12px; }

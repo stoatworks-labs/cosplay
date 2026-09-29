@@ -7,7 +7,7 @@ import { evaluate, feasible, repair, type Candidate, type Evaluation, type Goal,
 import { sectionSegments } from './lib/section.ts'
 import { splayRange } from './lib/systems.ts'
 import type { Project } from './lib/types.ts'
-import { linkedTargets, twins, writeCandidate } from './lib/write.ts'
+import { linkedTargets, planWrites, twins, writeCandidate } from './lib/write.ts'
 import { LevelChart } from './components/LevelChart.tsx'
 import { SectionView } from './components/SectionView.tsx'
 import type { Reply, Request } from './worker.ts'
@@ -43,6 +43,31 @@ interface Settings {
   excludedPlanes: number[]
 }
 
+/** Everything the page holds for one array, kept while you work on the others. */
+interface Plan {
+  settings: Settings
+  proposal: Candidate | null
+  copyTo: number[]
+}
+
+function defaultSettings(m: ArrayModel): Settings {
+  const r = splayRange(m.names)
+  return {
+    flatBands: [2000, 4000, 8000],
+    trackBand: 250,
+    slope: 0,
+    coherenceWeight: 0.5,
+    fromM: 0,
+    toM: 1000,
+    splayMin: r.min,
+    splayMax: r.max,
+    monotonic: true,
+    frameSpan: 10,
+    effort: 'normal',
+    excludedPlanes: [],
+  }
+}
+
 let sqlPromise: Promise<SqlJsStatic> | null = null
 const sql = () => (sqlPromise ??= initSqlJs({ locateFile: () => wasmUrl }))
 
@@ -50,10 +75,8 @@ export function App() {
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [groupId, setGroupId] = useState<number | null>(null)
-  const [settings, setSettings] = useState<Settings | null>(null)
-  const [proposal, setProposal] = useState<Candidate | null>(null)
+  const [plans, setPlans] = useState<Record<number, Plan>>({})
   const [running, setRunning] = useState<Progress | null>(null)
-  const [copyTo, setCopyTo] = useState<number[]>([])
   const [dragging, setDragging] = useState(false)
   const worker = useRef<Worker | null>(null)
   const runId = useRef(0)
@@ -78,6 +101,7 @@ export function App() {
       const models = all.filter((m) => !followers.has(m.group.sourceGroupId))
       if (!models.length) throw new Error('This project has no vertically flown line array Cosplay can work on.')
       setLoaded({ fileName: file.name, bytes, project, all, models, followers, skipped })
+      setPlans({})
       selectGroup(models[0])
     } catch (e) {
       setError(String((e as Error).message ?? e))
@@ -88,25 +112,22 @@ export function App() {
     worker.current?.terminate()
     worker.current = null
     setRunning(null)
-    setGroupId(m.group.sourceGroupId)
-    const r = splayRange(m.names)
-    setSettings({
-      flatBands: [2000, 4000, 8000],
-      trackBand: 250,
-      slope: 0,
-      coherenceWeight: 0.5,
-      fromM: 0,
-      toM: 1000,
-      splayMin: r.min,
-      splayMax: r.max,
-      monotonic: true,
-      frameSpan: 10,
-      effort: 'normal',
-      excludedPlanes: [],
-    })
-    setProposal(null)
-    setCopyTo([])
+    const id = m.group.sourceGroupId
+    setGroupId(id)
+    // Coming back to an array finds its settings and proposal as they were left.
+    setPlans((p) => (p[id] ? p : { ...p, [id]: { settings: defaultSettings(m), proposal: null, copyTo: [] } }))
   }
+
+  const patch = (id: number | null, fn: (p: Plan) => Plan) => {
+    if (id === null) return
+    setPlans((ps) => (ps[id] ? { ...ps, [id]: fn(ps[id]) } : ps))
+  }
+  const plan = groupId !== null ? plans[groupId] : undefined
+  const settings = plan?.settings ?? null
+  const proposal = plan?.proposal ?? null
+  const copyTo = plan?.copyTo ?? []
+  const setProposal = (c: Candidate | null, id = groupId) => patch(id, (p) => ({ ...p, proposal: c }))
+  const setCopyTo = (fn: (c: number[]) => number[]) => patch(groupId, (p) => ({ ...p, copyTo: fn(p.copyTo) }))
 
   const model = loaded?.models.find((m) => m.group.sourceGroupId === groupId) ?? null
 
@@ -158,6 +179,7 @@ export function App() {
     const w = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
     worker.current = w
     const id = ++runId.current
+    const gid = groupId
     w.onmessage = (e: MessageEvent<Reply>) => {
       const r = e.data
       if (r.runId !== runId.current) return
@@ -166,7 +188,7 @@ export function App() {
         setRunning(null)
         return
       }
-      setProposal(r.progress.best)
+      setProposal(r.progress.best, gid)
       setRunning(r.type === 'done' ? null : r.progress)
       if (r.type === 'done') {
         w.terminate()
@@ -187,13 +209,11 @@ export function App() {
   useEffect(() => () => worker.current?.terminate(), [])
 
   const download = async () => {
-    if (!loaded || !model || !proposal) return
+    if (!loaded || !saving.writes.length) return
     const SQL = await sql()
     const db: Database = new SQL.Database(loaded.bytes)
     try {
-      writeCandidate(db, model, proposal)
-      for (const t of linked.targets) writeCandidate(db, t, proposal)
-      for (const t of loaded.models) if (copyTo.includes(t.group.sourceGroupId)) writeCandidate(db, t, proposal)
+      for (const w of saving.writes) writeCandidate(db, w.target, w.candidate)
       const out = db.export()
       const blob = new Blob([out.slice().buffer], { type: 'application/octet-stream' })
       const a = document.createElement('a')
@@ -206,7 +226,7 @@ export function App() {
     }
   }
 
-  const set = <K extends keyof Settings>(k: K, v: Settings[K]) => setSettings((s) => (s ? { ...s, [k]: v } : s))
+  const set = <K extends keyof Settings>(k: K, v: Settings[K]) => patch(groupId, (p) => ({ ...p, settings: { ...p.settings, [k]: v } }))
   const editSplay = (i: number, v: number) => {
     if (!proposal || !problem) return
     const splays = proposal.splays.slice()
@@ -222,6 +242,14 @@ export function App() {
   }
 
   const linked = model && loaded ? linkedTargets(loaded.all, loaded.project.groups, model) : { targets: [], problems: [] }
+  // Every array with a proposal, in the picker's order: what one download writes.
+  const planned = loaded
+    ? loaded.models.flatMap((m) => {
+        const p = plans[m.group.sourceGroupId]
+        return p?.proposal ? [{ model: m, candidate: p.proposal, copyTo: loaded.models.filter((t) => p.copyTo.includes(t.group.sourceGroupId)) }] : []
+      })
+    : []
+  const saving = loaded ? planWrites(loaded.all, loaded.project.groups, planned) : { writes: [], problems: [] }
   const twinsOf = model && loaded ? twins(loaded.models, model, loaded.followers) : []
   const linkLabel = (m: ArrayModel) => {
     const n = loaded ? linkedTargets(loaded.all, loaded.project.groups, m).targets.length : 0
@@ -284,6 +312,7 @@ export function App() {
               <select value={groupId ?? ''} onChange={(e) => selectGroup(loaded.models.find((m) => m.group.sourceGroupId === +e.target.value)!)}>
                 {loaded.models.map((m) => (
                   <option key={m.group.sourceGroupId} value={m.group.sourceGroupId}>
+                    {plans[m.group.sourceGroupId]?.proposal ? '● ' : ''}
                     {m.group.name} — {m.names.length}× {[...new Set(m.names)].join('/')}{linkLabel(m)} (#{m.group.sourceGroupId})
                   </option>
                 ))}
@@ -474,15 +503,40 @@ export function App() {
                         onChange={(e) => setCopyTo((c) => (e.target.checked ? [...c, t.group.sourceGroupId] : c.filter((x) => x !== t.group.sourceGroupId)))}
                       />
                       {t.group.name} (#{t.group.sourceGroupId}, same {t.names.length} boxes, not linked in ArrayCalc)
+                      {plans[t.group.sourceGroupId]?.proposal && <span className="muted"> — has its own proposal, which wins</span>}
                     </label>
                   ))}
                 </div>
               )}
-              <button className="btn primary" disabled={!proposal || !!running} onClick={download}>
-                Download project with new splays
+              <div className="field saving">
+                <span className="label">In this download</span>
+                {planned.length === 0 && <span className="muted small">Nothing yet — optimise an array, or edit its splays.</span>}
+                {planned.map((p) => {
+                  const id = p.model.group.sourceGroupId
+                  const to = saving.writes.filter((w) => w.from === p.model && w.target !== p.model)
+                  return (
+                    <div key={id} className={`saved-row${id === groupId ? ' current' : ''}`}>
+                      <button type="button" className="linkish" onClick={() => selectGroup(p.model)} title="Show this array">
+                        {p.model.group.name} <span className="muted">#{id}</span>
+                      </button>
+                      <span className="muted small">
+                        frame {p.candidate.frameAngle.toFixed(1)}° · {p.candidate.splays.slice(1).join('-')}
+                        {to.length > 0 && ` · also ${to.map((w) => `${w.target.group.name} #${w.target.group.sourceGroupId}${w.why === 'linked' ? ' (linked)' : ''}`).join(', ')}`}
+                      </span>
+                      <button type="button" className="btn ghost small-btn" onClick={() => setProposal(null, id)} title="Leave this array as loaded">
+                        Discard
+                      </button>
+                    </div>
+                  )
+                })}
+                {saving.problems.length > 0 && <div className="banner warn small">{saving.problems.join('. ')}.</div>}
+              </div>
+              <button className="btn primary" disabled={!saving.writes.length || !!running} onClick={download}>
+                {planned.length > 1 ? `Download project with ${planned.length} arrays changed` : 'Download project with new splays'}
               </button>
               <p className="muted small">
-                Writes a copy with the frame angle, splays, cabinet angles and positions updated. Open it in ArrayCalc and
+                Writes one copy with every array listed above changed, each with its linked mirror, and everything else in the
+                project as it was: frame angle, splays, cabinet angles and positions. Switching arrays keeps each proposal. Open it in ArrayCalc and
                 check the Sources page and the rigging loads. The levels here come from Cosplay&rsquo;s own line-source model, not
                 d&amp;b&rsquo;s data, so ArrayCalc has the final word.
               </p>
