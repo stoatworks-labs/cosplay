@@ -66,3 +66,7 @@ npm run build
 ```
 
 Not affiliated with d&b audiotechnik.
+
+<!-- attributions:start -->
+This project is built on other people's work — see [ATTRIBUTIONS.md](ATTRIBUTIONS.md).
+<!-- attributions:end -->
