@@ -2,16 +2,18 @@
 
 > **AI-assisted project.** This codebase was created with [Claude](https://claude.com/claude-code)
 > (Anthropic), directed and reviewed by a human author.
-> Its splay results have been checked against ArrayCalc itself; check them there before
-> rigging from them.
+> Its splay results have been checked against ArrayCalc itself, and you should check yours
+> there too before you rig from them.
 
-A sidecar for d&b ArrayCalc. Open an ArrayCalc project (`.dbpr`), pick a flown line
-array, and Cosplay searches the splay angles and the frame angle for the most even
-direct sound level along the array's main axis — the "Direct sound level vs. distance"
-traces on ArrayCalc's Sources page — with the octave bands running together. It then
+Cosplay is a sidecar for d&b ArrayCalc. Open an ArrayCalc project (`.dbpr`), pick a flown
+line array, and Cosplay searches the splay angles and the frame angle for the most even
+direct sound level along the array's main axis (the "Direct sound level vs. distance"
+traces on ArrayCalc's Sources page), with the octave bands running together. Then it
 writes the result into a copy of the project for ArrayCalc to open.
 
-Everything runs in the browser; the project is never uploaded.
+The name's short for Compute Optimal Splay. No costumes are involved.
+
+Everything runs in the browser, and the project is never uploaded.
 
 ## How it works
 
@@ -19,15 +21,15 @@ Everything runs in the browser; the project is never uploaded.
   cabinets, flying frame and listening planes (see [docs/FORMAT.md](docs/FORMAT.md)).
 - **Rigging geometry is measured, not tabulated.** ArrayCalc stores each cabinet's
   front-top hinge point; the hinge-to-hinge vector is constant in the box's own frame, so
-  the geometry for any new set of splays is laid out exactly from the file itself.
-- **Its own prediction.** d&b's balloon data is not available, so each box is a flat,
-  coherent line source as tall as its pitch (sinc directivity), with a front/back weight,
+  the geometry for any new set of splays can be laid out precisely from the file itself.
+- **Its own prediction.** d&b's balloon data isn't available, so each box is treated as a
+  flat, coherent line source as tall as its pitch (sinc directivity), with a front/back weight,
   complex summation, 1/r spreading and ISO 9613-1 air absorption at the project's
   temperature and humidity. Octave bands are energy averages over 10 frequencies.
 - **Goal.** For the chosen HF bands (default 2/4/8 kHz): RMS deviation from a target
-  level drop (default 0 dB per doubled distance); plus a weighted *band spread* term —
-  how far the bands, each with its own offset removed, run apart, including one tracked
-  LF band — plus a small worst-seat term.
+  level drop (default 0 dB per doubled distance), plus a weighted *band spread* term
+  (how far the bands, each with its own offset removed, run apart, including one tracked
+  LF band), plus a small worst-seat term.
 - **Search.** Discrete splays within the family's range (overridable), frame angle in
   0.1° steps, optional "splays only grow down the array". Seeds (as loaded, constant,
   progressive), best-improvement descent over single-hinge, hinge-pair and frame moves,
@@ -52,7 +54,7 @@ Everything runs in the browser; the project is never uploaded.
 - Vertically flown line arrays only (no stacked, horizontal or SUB arrays yet).
 - Compression-rigged families (GSL, KSL, XSL, CCL): the nominal splay is written;
   ArrayCalc deflects each by up to ±0.3° under load, which Cosplay does not model.
-- Splay ranges per family are from memory plus the example projects — check them.
+- Splay ranges per family are from memory plus the example projects, so check them.
 - ArrayProcessing slots are invalidated by new splays; recalculate them in ArrayCalc.
 - Pick-point loads are left for ArrayCalc to recompute. ArrayCalc has the final word.
 
