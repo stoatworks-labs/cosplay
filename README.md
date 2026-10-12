@@ -35,8 +35,10 @@ Everything runs in the browser, and the project is never uploaded.
   progressive), best-improvement descent over single-hinge, hinge-pair and frame moves,
   then iterated kicks. Runs in a Web Worker; ~5,000 layouts in a few seconds.
 - **Write-back.** Frame angle, `SplayAngle`, each cabinet's `VerticalAngle` and hinge
-  origin, and `HeightLowestEdge` are updated together; mirrored hangs with the same box
-  column can take the same result. Nothing else in the file changes.
+  origin, and `HeightLowestEdge` are updated together. A hang ArrayCalc links as another's
+  mirror always gets the same angles, and an unlinked hang with the same box column can take
+  them too if you tick it. One download writes every array you've made a proposal for.
+  Nothing else in the file changes.
 
 ## Checked against ArrayCalc (12.8.3, 2026-09-29)
 
