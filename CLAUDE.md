@@ -44,9 +44,10 @@ skip there, and only the protocol and server-process tests run.
   existing file unless told to overwrite. It also reads the copy back before saving.
 - **Levels are Cosplay's line-source model, not d&b's data.** Every answer that carries a
   level says so, and the page does too. Keep both.
-- **`src/mcp/protocol.ts` is the same file in ArrayCAD** (`arraycad/src/mcp/protocol.ts`).
-  A fix to one belongs in both. It is hand-rolled rather than `@modelcontextprotocol/sdk`,
-  which brings an HTTP server, a schema library and a dozen transitive packages to frame
-  newline-delimited JSON.
+- **`src/mcp/protocol.ts` is VENDORED** from `stoatworks-backend/mcp/protocol.ts`, the same
+  file in every tool's server. Never edit it here: change the master and run
+  `stoatworks-backend/scripts/sync-mcp.py --apply`, or the next sync reverts the fix. It is
+  hand-rolled rather than `@modelcontextprotocol/sdk`, which brings an HTTP server, a
+  schema library and a dozen transitive packages to frame newline-delimited JSON.
 - Tests that need the example projects use `describe.runIf(haveExamples)` from
   `src/lib/testing.ts`.
