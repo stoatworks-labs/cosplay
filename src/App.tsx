@@ -1,20 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js'
 import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url'
-import { linkedFollowers, readProject } from './lib/dbpr.ts'
-import { buildModel, unsupportedReason, type ArrayModel } from './lib/geometry.ts'
-import { evaluate, feasible, repair, type Candidate, type Evaluation, type Goal, type Limits, type Problem, type Progress } from './lib/optimise.ts'
+import { readProject } from './lib/dbpr.ts'
+import type { ArrayModel } from './lib/geometry.ts'
+import { evaluate, feasible, type Candidate, type Evaluation, type Problem, type Progress } from './lib/optimise.ts'
 import { sectionSegments } from './lib/section.ts'
+import {
+  EFFORT,
+  HF_BANDS,
+  LF_BANDS,
+  SECTION_STEP,
+  arraysOf,
+  copyName,
+  defaultSettings,
+  drawingProblem,
+  handEdit,
+  plannedArrays,
+  searchProblem,
+  type Plan,
+  type Settings,
+} from './lib/session.ts'
 import { splayRange } from './lib/systems.ts'
 import type { Project } from './lib/types.ts'
 import { linkedTargets, planWrites, twins, writeCandidate } from './lib/write.ts'
 import { LevelChart } from './components/LevelChart.tsx'
 import { SectionView } from './components/SectionView.tsx'
 import type { Reply, Request } from './worker.ts'
-
-const HF_BANDS = [1000, 2000, 4000, 8000]
-const LF_BANDS = [63, 125, 250, 500]
-const EFFORT = { quick: 1500, normal: 5000, thorough: 15000 } as const
 
 interface Loaded {
   fileName: string
@@ -26,46 +37,6 @@ interface Loaded {
   models: ArrayModel[]
   followers: Set<number>
   skipped: { name: string; why: string }[]
-}
-
-interface Settings {
-  flatBands: number[]
-  trackBand: number | null
-  slope: number
-  coherenceWeight: number
-  fromM: number
-  toM: number
-  splayMin: number
-  splayMax: number
-  monotonic: boolean
-  frameSpan: number
-  effort: keyof typeof EFFORT
-  excludedPlanes: number[]
-}
-
-/** Everything the page holds for one array, kept while you work on the others. */
-interface Plan {
-  settings: Settings
-  proposal: Candidate | null
-  copyTo: number[]
-}
-
-function defaultSettings(m: ArrayModel): Settings {
-  const r = splayRange(m.names)
-  return {
-    flatBands: [2000, 4000, 8000],
-    trackBand: 250,
-    slope: 0,
-    coherenceWeight: 0.5,
-    fromM: 0,
-    toM: 1000,
-    splayMin: r.min,
-    splayMax: r.max,
-    monotonic: true,
-    frameSpan: 10,
-    effort: 'normal',
-    excludedPlanes: [],
-  }
 }
 
 let sqlPromise: Promise<SqlJsStatic> | null = null
@@ -89,17 +60,7 @@ export function App() {
       const db = new SQL.Database(bytes)
       const project = readProject(db, file.name)
       db.close()
-      const followers = linkedFollowers(project.groups)
-      const all: ArrayModel[] = []
-      const skipped: Loaded['skipped'] = []
-      for (const g of project.groups) {
-        if (g.type === 5) continue
-        const why = unsupportedReason(g)
-        if (!why) all.push(buildModel(g))
-        else if (!followers.has(g.sourceGroupId)) skipped.push({ name: g.name, why })
-      }
-      const models = all.filter((m) => !followers.has(m.group.sourceGroupId))
-      if (!models.length) throw new Error('This project has no vertically flown line array Cosplay can work on.')
+      const { all, models, followers, skipped } = arraysOf(project)
       setLoaded({ fileName: file.name, bytes, project, all, models, followers, skipped })
       setPlans({})
       selectGroup(models[0])
@@ -131,41 +92,18 @@ export function App() {
 
   const model = loaded?.models.find((m) => m.group.sourceGroupId === groupId) ?? null
 
-  const segments = useMemo(() => (model && loaded ? sectionSegments(model, loaded.project.planes, 0.25) : []), [model, loaded])
+  const segments = useMemo(() => (model && loaded ? sectionSegments(model, loaded.project.planes, SECTION_STEP) : []), [model, loaded])
 
-  const problem = useMemo<Problem | null>(() => {
-    if (!model || !settings || !loaded) return null
-    const points = segments
-      .filter((s) => !settings.excludedPlanes.includes(s.planeId))
-      .flatMap((s) => s.points)
-      .filter((p) => p.u >= settings.fromM && p.u <= settings.toM)
-      .filter((_, i) => i % 2 === 0) // 0.5 m for the search; the chart draws every point
-    if (points.length < 4) return null
-    const goal: Goal = {
-      flatBands: settings.flatBands.length ? settings.flatBands : [4000],
-      trackBands: settings.trackBand ? [settings.trackBand] : [],
-      slopePerDoubling: settings.slope,
-      coherenceWeight: settings.coherenceWeight,
-      worstWeight: 0.1,
-    }
-    const limits: Limits = {
-      splayMin: settings.splayMin,
-      splayMax: settings.splayMax,
-      splayStep: 1,
-      frameMin: +(model.frameAngle - settings.frameSpan).toFixed(1),
-      frameMax: +(model.frameAngle + settings.frameSpan).toFixed(1),
-      frameStep: 0.1,
-      monotonic: settings.monotonic,
-    }
-    return { model, points, atmosphere: loaded.project, goal, limits }
-  }, [model, settings, segments, loaded])
+  const problem = useMemo<Problem | null>(
+    () => (model && settings && loaded ? searchProblem(model, settings, segments, loaded.project) : null),
+    [model, settings, segments, loaded],
+  )
 
   // Full-resolution problem for drawing (every 0.25 m point, all planes, distance range shown shaded).
-  const drawProblem = useMemo<Problem | null>(() => {
-    if (!problem) return null
-    const points = segments.filter((s) => !settings!.excludedPlanes.includes(s.planeId)).flatMap((s) => s.points)
-    return { ...problem, points }
-  }, [problem, segments, settings])
+  const drawProblem = useMemo<Problem | null>(
+    () => (problem ? drawingProblem(problem, segments, settings!) : null),
+    [problem, segments, settings],
+  )
 
   const asLoaded: Candidate | null = model ? { frameAngle: model.frameAngle, splays: model.splays } : null
   const before = useMemo(() => (drawProblem && asLoaded ? evaluate(drawProblem, asLoaded) : null), [drawProblem, model])
@@ -218,7 +156,7 @@ export function App() {
       const blob = new Blob([out.slice().buffer], { type: 'application/octet-stream' })
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
-      a.download = loaded.fileName.replace(/\.dbpr$/i, '') + ' (cosplay).dbpr'
+      a.download = copyName(loaded.fileName)
       a.click()
       setTimeout(() => URL.revokeObjectURL(a.href), 5000)
     } finally {
@@ -231,7 +169,7 @@ export function App() {
     if (!proposal || !problem) return
     const splays = proposal.splays.slice()
     splays[i] = v
-    setProposal(repair({ ...problem.limits, monotonic: false }, { ...proposal, splays }))
+    setProposal(handEdit(problem.limits, { ...proposal, splays }))
   }
 
   const onDrop = (e: React.DragEvent) => {
@@ -243,12 +181,7 @@ export function App() {
 
   const linked = model && loaded ? linkedTargets(loaded.all, loaded.project.groups, model) : { targets: [], problems: [] }
   // Every array with a proposal, in the picker's order: what one download writes.
-  const planned = loaded
-    ? loaded.models.flatMap((m) => {
-        const p = plans[m.group.sourceGroupId]
-        return p?.proposal ? [{ model: m, candidate: p.proposal, copyTo: loaded.models.filter((t) => p.copyTo.includes(t.group.sourceGroupId)) }] : []
-      })
-    : []
+  const planned = loaded ? plannedArrays(loaded, plans) : []
   const saving = loaded ? planWrites(loaded.all, loaded.project.groups, planned) : { writes: [], problems: [] }
   const twinsOf = model && loaded ? twins(loaded.models, model, loaded.followers) : []
   const linkLabel = (m: ArrayModel) => {

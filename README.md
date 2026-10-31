@@ -60,6 +60,39 @@ Everything runs in the browser, and the project is never uploaded.
 - ArrayProcessing slots are invalidated by new splays; recalculate them in ArrayCalc.
 - Pick-point loads are left for ArrayCalc to recompute. ArrayCalc has the final word.
 
+## Drive it from Claude
+
+Cosplay also runs as an MCP server, so Claude Code (or any other MCP client) can do the
+search itself: open a project, set the goal, optimise each array, look at the traces and
+write the copy. It's the same library the page runs, working on files on your own machine,
+and nothing is uploaded. It needs Node 22.18 or later, which runs the TypeScript as it is.
+
+```bash
+npm install
+```
+
+```bash
+claude mcp add cosplay -- node /path/to/cosplay/src/mcp/server.ts
+```
+
+Then ask for what you'd do in the page: *open ~/shows/arena.dbpr, optimise Main for a 3 dB
+drop per doubled distance from 10 m back, and write the copy*. The tools are the page's
+controls:
+
+- `open_project` lists the arrays it can work on, each with its linked mirror, and the
+  groups it skips and why. `describe_array` gives one array's boxes, goal, the listening
+  planes its axis crosses and its scores.
+- `set_goal` is the Goal and Rigging panel. `optimise` runs the search, reports progress,
+  and keeps the best layout so far if it's cancelled.
+- `set_angles` is the splay table: snapped to whole degrees and clamped to the range, but not
+  forced to grow. `level_trace` gives the traces the chart draws, as numbers.
+- `set_copies` ticks an unlinked look-alike. `write_project` writes every proposal into
+  `<name> (cosplay).dbpr` beside the original and reads it back before saving. It never
+  touches the original.
+
+The levels are still Cosplay's own model, so the same rule applies: open the copy in
+ArrayCalc and check it there.
+
 ## Development
 
 ```bash
@@ -68,6 +101,8 @@ npm run dev
 npm test        # uses ArrayCalc's example projects if ArrayCalc V12 is installed
 npm run build
 ```
+
+See [CLAUDE.md](CLAUDE.md) for the rules the page and the MCP server share.
 
 Not affiliated with d&b audiotechnik.
 

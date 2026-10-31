@@ -12,6 +12,8 @@
     "noEmit": true,
     "skipLibCheck": true,
     "isolatedModules": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
     "types": ["vite/client", "node", "vitest/globals"]
