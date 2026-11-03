@@ -183,3 +183,6 @@ table.splays { width: 100%; border-collapse: collapse; font-variant-numeric: tab
 .linkish { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--text); cursor: pointer; text-align: left; }
 .linkish:hover { color: var(--accent); }
 .small-btn { padding: 2px 8px; font-size: 12px; }
+
+/* The footer's link to the tool's page on stoatworks-labs.com: the footer's own colour, not browser blue. */
+.foot a { color: inherit; }

@@ -1,0 +1,14 @@
+# Cosplay
+
+> Splay angles for an even level, from an ArrayCalc project
+
+Compute Optimal Splay. Open a d&b ArrayCalc project, pick a flown line array, and Cosplay searches its splay angles and frame angle for the most even direct sound level along the array’s main axis (the “Direct sound level vs. distance” traces on ArrayCalc’s Sources page), with the octave bands running together rather than drifting apart. Then it writes the result into a copy of the project for ArrayCalc to open. ArrayCalc has no plug-in interface, but a .dbpr is a database, so Cosplay reads the arrays and listening planes straight out of it and lays new splays out from the rigging geometry the file already records. The levels come from its own coherent line-source model, not from d&b’s data, so ArrayCalc gets the final word.
+
+It's a Stoatworks Labs web tool: free, and it runs in a web browser.
+
+## Links
+
+- [Cosplay, the app](https://cosplay.stoatworks-labs.com/): runs in the browser, free
+- [Project page](https://stoatworks-labs.com/software/cosplay/)
+- [Web tool page](https://stoatworks-labs.com/web-tools/cosplay/)
+- [Source on GitHub](https://github.com/stoatworks-labs/cosplay)

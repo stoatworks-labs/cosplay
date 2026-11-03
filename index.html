@@ -3,10 +3,63 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cosplay</title>
-    <meta name="description" content="Compute Optimal Splay: optimise line-array splay angles in a d&b ArrayCalc project for the most even direct sound level through the room." />
+    <title>Cosplay — splay angles for an even level, from an ArrayCalc project</title>
+    <meta name="description" content="Compute Optimal Splay: open a d&amp;b ArrayCalc project, pick a flown line array, and get splay angles for the most even direct sound level front to back. Free, in your browser." />
+    <link rel="canonical" href="https://cosplay.stoatworks-labs.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Stoatworks Labs" />
+    <meta property="og:title" content="Cosplay — splay angles for an even level, from an ArrayCalc project" />
+    <meta property="og:description" content="Compute Optimal Splay: open a d&amp;b ArrayCalc project, pick a flown line array, and get splay angles for the most even direct sound level front to back. Free, in your browser." />
+    <meta property="og:url" content="https://cosplay.stoatworks-labs.com/" />
+    <meta property="og:image" content="https://stoatworks-labs.com/thumbs/cosplay.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="720" />
+    <meta property="og:image:alt" content="Cosplay" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- One entity with the tool's page on stoatworks-labs.com: same @id there. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "@id": "https://cosplay.stoatworks-labs.com#app",
+        "name": "Cosplay",
+        "url": "https://cosplay.stoatworks-labs.com",
+        "description": "Compute Optimal Splay: open a d&b ArrayCalc project, pick a flown line array, and get splay angles for the most even direct sound level front to back. Free, in your browser.",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "Any (runs in a web browser)",
+        "isAccessibleForFree": true,
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "GBP"
+        },
+        "author": {
+          "@id": "https://stoatworks-labs.com/#organization",
+          "@type": "Organization",
+          "name": "Stoatworks Labs",
+          "url": "https://stoatworks-labs.com/"
+        },
+        "publisher": {
+          "@id": "https://stoatworks-labs.com/#organization"
+        },
+        "sameAs": [
+          "https://stoatworks-labs.com/web-tools/cosplay/",
+          "https://github.com/stoatworks-labs/cosplay"
+        ]
+      }
+    </script>
   </head>
   <body>
+    <noscript>
+      <h1>Cosplay</h1>
+      <p>Splay angles for an even level, from an ArrayCalc project.</p>
+      <p>Compute Optimal Splay. Open a d&amp;b ArrayCalc project, pick a flown line array, and Cosplay searches its splay angles and frame angle for the most even direct sound level along the array’s main axis (the “Direct sound level vs. distance” traces on ArrayCalc’s Sources page), with the octave bands running together rather than drifting apart. Then it writes the result into a copy of the project for ArrayCalc to open. ArrayCalc has no plug-in interface, but a .dbpr is a database, so Cosplay reads the arrays and listening planes straight out of it and lays new splays out from the rigging geometry the file already records. The levels come from its own coherent line-source model, not from d&amp;b’s data, so ArrayCalc gets the final word.</p>
+      <p>Cosplay runs in the browser and needs JavaScript.</p>
+      <ul>
+        <li><a href="https://stoatworks-labs.com/software/cosplay/">Cosplay on stoatworks-labs.com</a></li>
+        <li><a href="https://github.com/stoatworks-labs/cosplay">Source on GitHub</a></li>
+      </ul>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <!--

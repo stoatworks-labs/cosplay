@@ -15,6 +15,8 @@ The name's short for Compute Optimal Splay. No costumes are involved.
 
 Everything runs in the browser, and the project is never uploaded.
 
+It's live at [cosplay.stoatworks-labs.com](https://cosplay.stoatworks-labs.com). There's more on [its page at stoatworks-labs.com](https://stoatworks-labs.com/web-tools/cosplay/).
+
 ## How it works
 
 - **Reads the project directly.** A `.dbpr` is SQLite. Cosplay reads the source groups,

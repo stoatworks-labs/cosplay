@@ -484,7 +484,7 @@ export function App() {
           </section>
         </main>
       )}
-      <footer className="foot muted small">Cosplay {__APP_VERSION__} · not affiliated with d&amp;b audiotechnik</footer>
+      <footer className="foot muted small">Cosplay {__APP_VERSION__} · <a href="https://stoatworks-labs.com/web-tools/cosplay/" target="_blank" rel="noopener">stoatworks-labs.com</a> · not affiliated with d&amp;b audiotechnik</footer>
     </div>
   )
 }
