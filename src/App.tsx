@@ -201,20 +201,22 @@ export function App() {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      <header className="top">
+      <header className="sw-bar top">
         <div className="brand">
-          <h1>Cosplay</h1>
+          <h1 className="sw-brand">
+            <span className="sw-mark" aria-hidden="true">◺</span> Cosplay
+          </h1>
           <span className="tag">Compute Optimal Splay · for d&amp;b ArrayCalc projects</span>
           <span className="preview">preview</span>
         </div>
         <div className="top-actions">
-        <button type="button" className="btn ghost" data-stoatworks-about>
-          About
-        </button>
-        <label className="btn">
+        <label className="btn primary">
           {loaded ? 'Open another .dbpr' : 'Open .dbpr'}
           <input type="file" accept=".dbpr" hidden onChange={(e) => e.target.files?.[0] && open(e.target.files[0])} />
         </label>
+        <button type="button" className="btn" data-stoatworks-about>
+          About
+        </button>
         </div>
       </header>
 
