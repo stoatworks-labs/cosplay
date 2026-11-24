@@ -40,7 +40,9 @@ interface Loaded {
 }
 
 let sqlPromise: Promise<SqlJsStatic> | null = null
-const sql = () => (sqlPromise ??= initSqlJs({ locateFile: () => wasmUrl }))
+// @types/sql.js 1.16 makes useOldExtensionFunctions required, though sql.js itself defaults it to
+// true. Passing true says so explicitly and keeps the behaviour this app was built against.
+const sql = () => (sqlPromise ??= initSqlJs({ locateFile: () => wasmUrl, useOldExtensionFunctions: true }))
 
 export function App() {
   const [loaded, setLoaded] = useState<Loaded | null>(null)
